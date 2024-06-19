@@ -7,15 +7,33 @@ class HTMLNode():
         a link (<a> tag) might have {"href": "https://www.google.com"}
     """
     def __init__(self,tag = None,value = None,children = None,props = None):
-        self.__tag = tag
-        self.__value = value
-        self.__children = children
-        self.__props = props
+        self.tag = tag
+        self.value = value
+        self.children = children
+        self.props = props
     
     def to_html(self):
         raise NotImplementedError("Child classes will override this method to render themselves as HTML.")
     def props_to_html(self):
         # sample href="https://www.google.com" target="_blank"
         html = ""
-        for prop in self.__props:
-            html += f"{prop} "
+        for prop, value in self.props.items():
+            html += f' {prop}="{value}"'
+        return html
+    
+    def __repr__(self) -> str:
+        #print(self.__tag, self.__value, self.__children, self.__props)
+        pass
+
+class LeafNode(HTMLNode):
+    def __init__(self, tag=None, value=None, props=None):
+        super().__init__(tag, value, None, props)
+    
+    def to_html(self):
+        if self.tag == None:
+            return self.value
+        elif self.props == None:
+            print(self.value)
+            return f"<{self.tag}>{self.value}</{self.tag}>"
+        else:
+            return f"<{self.tag}{self.props_to_html()}>{self.value}</{self.tag}>"  
