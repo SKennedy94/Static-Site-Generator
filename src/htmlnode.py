@@ -23,7 +23,7 @@ class HTMLNode():
         return html
     
     def __repr__(self):
-        return f"HTMLNode({self.__tag}, {self.__value}, {self.__children}, {self.__props})"
+        return f"HTMLNode({self.tag}, {self.value}, {self.children}, {self.props})"
 
 class LeafNode(HTMLNode):
     def __init__(self, tag, value, props=None):

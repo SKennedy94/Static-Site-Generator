@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from htmlnode import LeafNode
+from htmlnode import *
 
 class text_types(Enum):
     text = 1
@@ -9,6 +9,14 @@ class text_types(Enum):
     code = 4
     link = 5
     image = 6
+
+class block_types(Enum):
+    paragraph = 0
+    heading = 1
+    code = 2
+    quote = 3
+    unordered_list = 4
+    ordered_list = 5
 
 class TextNode():
     def __init__(self,text,text_type,url = None):
@@ -150,3 +158,56 @@ def markdown_to_blocks(markdown):
     if len(block) != 0:
         blocks.append(block)
     return blocks
+
+def block_to_block_type(block):
+
+    if block[0].startswith('#'):
+        return block_types.heading
+    elif block[0].startswith('```') and block[0].endswith('```'):
+        return block_types.code
+    elif block[0].startswith('>'):
+        return block_types.quote
+    for i,line in enumerate(block):
+        if not block[i].startswith('* ') or block[i].startswith('- '):
+            break
+    else:
+        return block_types.unordered_list
+    for i,line in enumerate(block):
+        if not block[i].startswith(f'{i+1}. '):
+            break
+    else:
+        return block_types.ordered_list                        
+
+    return block_types.paragraph
+
+def paragraph_block_to_html_node(block):
+    value = ""
+    for line in block:
+        value += line + '\n'
+
+    return HTMLNode('p',value)
+
+def heading_block_to_html_node(block):
+    header_index = block[0].count('#')
+    if 1 < header_index < 6:
+        raise ValueError(f"Markdown Error: invalid header index of h{header_index}")
+    for line in block:
+        value += line + '\n'
+    return HTMLNode(f'h{header_index}',value)
+
+def code_block_to_html_node(block):
+    for line in block:
+        value += line + '\n'
+    return HTMLNode('pre',None,HTMLNode('code',value))
+
+def quote_block_to_html_node(block):
+    pass
+
+def unordered_list_block_to_html_node(block):
+    pass
+
+def ordered_list_block_to_html_node(block):
+    pass
+
+def markdown_to_html_node(markdown):
+    pass
