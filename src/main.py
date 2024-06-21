@@ -2,11 +2,14 @@ from htmlnode import *
 from textnode import *
 
 def main():
+    markdown = """This is **bolded** paragraph
 
-    node = TextNode("This is text with a `code block` word", text_types.text)
+This is another paragraph with *italic* text and `code` here
+This is the same paragraph on a new line
 
-    new_nodes = split_nodes_delimiter([node], "`", text_types.code)
-    print(new_nodes)
+* This is a list
+* with items"""
+    print(markdown_to_blocks(markdown))
 
 main()
 
