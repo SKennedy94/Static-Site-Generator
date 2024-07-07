@@ -32,6 +32,8 @@ class LeafNode(HTMLNode):
     def to_html(self):
         if self.value is None:
             raise ValueError("Invalid HTML: no value")
+        if not isinstance(self.value, str):
+            raise TypeError("LeafNode value must be a string")
         if self.tag is None:
             return self.value
         return f"<{self.tag}{self.props_to_html()}>{self.value}</{self.tag}>"
@@ -44,6 +46,8 @@ class ParentNode(HTMLNode):
         super().__init__(tag,None,children,props)
     
     def to_html(self):
+        if not isinstance(self.children, list):
+            raise TypeError("ParentNode children must be a list")
         if self.tag is None:
             raise ValueError("HTML Error: Tag not provided.")
         if self.children is None:

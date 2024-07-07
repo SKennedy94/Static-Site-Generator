@@ -31,7 +31,7 @@ class TextNode():
         return f"TextNode({self.text}, {self.text_type}, {self.url})"
     
 def text_node_to_html_node(text_node):
-    match text_node.__text_type:
+    match text_node.text_type:
         case text_types.text:
             return LeafNode(None,text_node.text)
         case text_types.bold:
@@ -86,7 +86,9 @@ def split_nodes_image(old_nodes):
                     temp = node.text
                     for alt, src in matches:
                         split_parts = temp.split(f"![{alt}]({src})", 1)
-                        if(split_parts[0]) != "":
+                        if(split_parts[0]) == "":
+                            new_nodes.append(TextNode(alt,text_types.image,src))
+                        else:
                             new_nodes.append(TextNode(split_parts[0],text_types.text))
                             new_nodes.append(TextNode(alt,text_types.image,src))
                         temp = split_parts[1]
@@ -116,9 +118,11 @@ def split_nodes_link(old_nodes):
                     temp = node.text
                     for alt, src in matches:
                         split_parts = temp.split(f"[{alt}]({src})", 1)
-                        if(split_parts[0]) != "":
+                        if(split_parts[0]) == "":
+                            new_nodes.append(TextNode(alt,text_types.link,src))
+                        else:
                             new_nodes.append(TextNode(split_parts[0],text_types.text))
-                            new_nodes.append(TextNode(alt,text_types.image,src))
+                            new_nodes.append(TextNode(alt,text_types.link,src))
                         temp = split_parts[1]
 
                     if temp != "":
@@ -138,11 +142,11 @@ def extract_markdown_links(text):
 def text_to_textnodes(text):
     node = TextNode(text,text_types.text)
     test_nodes = [node]
+    test_nodes = split_nodes_image(test_nodes)
+    test_nodes = split_nodes_link(test_nodes)
     test_nodes = split_nodes_delimiter(test_nodes,'**',text_types.bold)
     test_nodes = split_nodes_delimiter(test_nodes,'*',text_types.italic)
     test_nodes = split_nodes_delimiter(test_nodes, '`', text_types.code)
-    test_nodes = split_nodes_image(test_nodes)
-    test_nodes = split_nodes_link(test_nodes)
     return test_nodes
 
 def markdown_to_blocks(markdown):
@@ -163,16 +167,26 @@ def block_to_block_type(block):
 
     if block[0].startswith('#'):
         return block_types.heading
-    elif block[0].startswith('```') and block[0].endswith('```'):
+    elif block[0].startswith('```') and block[len(block)-1].endswith('```'):
         return block_types.code
-    elif block[0].startswith('>'):
-        return block_types.quote
-    for i,line in enumerate(block):
-        if not block[i].startswith('* ') or block[i].startswith('- '):
+    elif block[0].startswith('*') or block[0].startswith('-'):
+        is_unordered_block = True
+        for i in range(len(block)):
+            if block[i].startswith('*') or block[i].startswith('-'):
+                is_unordered_block = True
+            else:
+                is_unordered_block = False
+                break
+        if is_unordered_block:
+            return block_types.unordered_list
+
+    for i in range(len(block)):
+        if not block[i].startswith('>'):
             break
     else:
-        return block_types.unordered_list
-    for i,line in enumerate(block):
+        return block_types.quote  
+
+    for i in range(len(block)):
         if not block[i].startswith(f'{i+1}. '):
             break
     else:
@@ -184,30 +198,82 @@ def paragraph_block_to_html_node(block):
     value = ""
     for line in block:
         value += line + '\n'
-
-    return HTMLNode('p',value)
+    text_nodes = text_to_textnodes(value)
+    inline_nodes = []
+    for node in text_nodes:
+        inline_nodes.append(text_node_to_html_node(node))
+    return ParentNode('p',inline_nodes)
 
 def heading_block_to_html_node(block):
     header_index = block[0].count('#')
-    if 1 < header_index < 6:
+    value = ""
+    if 1 > header_index > 6:
         raise ValueError(f"Markdown Error: invalid header index of h{header_index}")
     for line in block:
         value += line + '\n'
-    return HTMLNode(f'h{header_index}',value)
+    text_nodes = text_to_textnodes(value[header_index:])
+    inline_nodes = []
+    for node in text_nodes:
+        inline_nodes.append(text_node_to_html_node(node))
+    return ParentNode(f'h{header_index}', inline_nodes)
 
 def code_block_to_html_node(block):
+    value = ""
     for line in block:
         value += line + '\n'
-    return HTMLNode('pre',None,HTMLNode('code',value))
+    text_nodes = text_to_textnodes(value[4:-4])
+    inline_nodes = []
+    for node in text_nodes:
+        inline_nodes.append(text_node_to_html_node(node))
+    return ParentNode('pre',[ParentNode('code',inline_nodes)])
 
 def quote_block_to_html_node(block):
-    pass
+    value = ""
+    for line in block:
+        value += line[1:] + '\n'
+    text_nodes = text_to_textnodes(value)
+    inline_nodes = []
+    for node in text_nodes:
+        inline_nodes.append(text_node_to_html_node(node))
+
+    return ParentNode('blockquote', inline_nodes)
 
 def unordered_list_block_to_html_node(block):
-    pass
+    children = []
+    for line in block:
+        text_nodes = text_to_textnodes(line[2:])
+        inline_nodes = []
+        for node in text_nodes:
+            inline_nodes.append(text_node_to_html_node(node))
+
+        children.append(ParentNode('li',inline_nodes))
+    return ParentNode('ul',children)
 
 def ordered_list_block_to_html_node(block):
-    pass
+    children = []
+    for line in block:
+        text_nodes = text_to_textnodes(line[2:])
+        inline_nodes = []
+        for node in text_nodes:
+            inline_nodes.append(text_node_to_html_node(node))
+
+        children.append(ParentNode('li',inline_nodes))
+    return ParentNode('ol',children)
 
 def markdown_to_html_node(markdown):
-    pass
+    children = []
+    for block in markdown_to_blocks(markdown):
+        match block_to_block_type(block):
+            case block_types.paragraph:
+                children.append(paragraph_block_to_html_node(block))
+            case block_types.heading:
+                children.append(heading_block_to_html_node(block))
+            case block_types.code:
+                children.append(code_block_to_html_node(block))
+            case block_types.quote:
+                children.append(quote_block_to_html_node(block))
+            case block_types.unordered_list:
+                children.append(unordered_list_block_to_html_node(block))
+            case block_types.ordered_list:
+                children.append(ordered_list_block_to_html_node(block))
+    return ParentNode('div',children,)
